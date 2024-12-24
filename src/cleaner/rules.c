@@ -85,6 +85,69 @@ static char *remove_duplicate_spaces(char *text, size_t *size) {
     return text;
 }
 
+static char *remove_html_tags(char *text, size_t *size) {
+    char *src = text;
+    char *dst = text;
+    int in_tag = 0;
+
+    while (*src) {
+        if (*src == '<') {
+            in_tag = 1;
+        } else if (*src == '>') {
+            in_tag = 0;
+            src++;
+            continue;
+        }
+
+        if (!in_tag) {
+            *dst++ = *src;
+        }
+        src++;
+    }
+
+    *dst = '\0';
+    *size = dst - text;
+    return text;
+}
+
+static char *remove_urls(char *text, size_t *size) {
+    char *src = text;
+    char *dst = text;
+    const char *protocols[] = {"http://", "https://", "ftp://", "www."};
+    int num_protocols = 4;
+    int in_url = 0;
+    char *url_start = NULL;
+
+    while (*src) {
+        // Check for URL start
+        if (!in_url) {
+            for (int i = 0; i < num_protocols; i++) {
+                if (strncasecmp(src, protocols[i], strlen(protocols[i])) == 0) {
+                    in_url = 1;
+                    url_start = src;
+                    break;
+                }
+            }
+        }
+
+        // If in URL, look for end (whitespace or specific characters)
+        if (in_url) {
+            if (isspace(*src) || *src == '"' || *src == '\'' || *src == '>' || *src == ')') {
+                in_url = 0;
+                src++;
+                continue;
+            }
+        } else {
+            *dst++ = *src;
+        }
+        src++;
+    }
+
+    *dst = '\0';
+    *size = dst - text;
+    return text;
+}
+
 int apply_rules(char *text, size_t *size) {
     if (!text || !size) return HD_ERROR;
 
@@ -98,6 +161,14 @@ int apply_rules(char *text, size_t *size) {
     
     if (rules[RULE_REMOVE_DUPLICATE_SPACES].enabled) {
         text = remove_duplicate_spaces(text, size);
+    }
+
+    if (rules[RULE_REMOVE_HTML_TAGS].enabled) {
+        text = remove_html_tags(text, size);
+    }
+
+    if (rules[RULE_REMOVE_URLS].enabled) {
+        text = remove_urls(text, size);
     }
 
     return HD_SUCCESS;
